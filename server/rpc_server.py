@@ -15,11 +15,11 @@ import os
 import base64
 import random
 import time
-
+from typing import List, Tuple
 
 class RPCServer:
 
-    def __init__(self, node_id: int, ip: str, port: int, cluster: list[tuple[int, str, int]]):
+    def __init__(self, node_id: int, ip: str, port: int, cluster: List[Tuple[int, str, int]]):
         # Log file to check output and debug
         self.node_id = node_id
         self.cluster = cluster
