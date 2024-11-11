@@ -9,6 +9,7 @@ implmentation of basic paxos algorithm.
 
 from xmlrpc.server import SimpleXMLRPCServer
 from xmlrpc.client import ServerProxy
+from socketserver import ThreadingMixIn
 from datetime import datetime
 import sys
 import os
@@ -16,6 +17,10 @@ import base64
 import random
 import time
 from typing import List, Tuple
+
+
+class ThreadedXMLRPCServer(ThreadingMixIn, SimpleXMLRPCServer):
+    pass
 
 class RPCServer:
 
@@ -27,7 +32,7 @@ class RPCServer:
         self.accepted_number = self.promised_number
         self.accepted_data = None # If not previously accepted this will be None
         self.quorum = (len(self.cluster) + 1) // 2 + 1
-        self.server = SimpleXMLRPCServer((ip, port), allow_none=True)
+        self.server = ThreadedXMLRPCServer((ip, port), allow_none=True)
         self.server.register_instance(self)
         file_dir = f"node{self.node_id}"
         os.makedirs(file_dir, exist_ok=True)
@@ -61,6 +66,7 @@ class RPCServer:
     def write_file_data(self, file_data):
         try:
             decoded_data = base64.b64decode(file_data)
+            self.write_log(f"Updating file data with: {decoded_data}")
             with open(self.file_path, "wb") as file:
                 file.write(decoded_data)
         except base64.binascii.Error:
@@ -84,11 +90,12 @@ class RPCServer:
             self.promised_number += 1
             self.accepted_number = self.promised_number
             vote = 1
+            self.write_log(f"Attempt to propose with number: {self.promised_number}")
             for node_id, ip, port in self.cluster:
                 url = f"http://{ip}:{port}"
                 try:
                     proxy = ServerProxy(url)
-                    res = proxy.prepare(self.promised_number)
+                    res = proxy.prepare(self.promised_number,self.node_id)
                     # Accept proposal?
                     if res[0]:
                         vote += 1
@@ -112,7 +119,8 @@ class RPCServer:
 
     # Handle the prepare request.
     # Return Tuple(OK, highest_accepted_number, accepted_data)
-    def prepare(self, proposal_number):
+    def prepare(self, proposal_number, node_id):
+        self.write_log(f"Received prepare request {str(proposal_number)} from node {node_id}")
         if proposal_number > self.promised_number:
             self.promised_number = proposal_number
             return True, self.accepted_number, self.accepted_data
@@ -122,12 +130,13 @@ class RPCServer:
     # Accept Phase
     # Send accept request to cluster.
     def request_accept(self):
+        self.write_log("Start requesting to accept.")
         vote = 1
         for node_id, ip, port in self.cluster:
             url = f"http://{ip}:{port}"
             try:
                 proxy = ServerProxy(url)
-                res = proxy.accept(self.promised_number, self.accepted_data)
+                res = proxy.accept(self.promised_number, self.accepted_data, self.node_id)
                 # Ok?
                 if res:
                     vote += 1
@@ -140,7 +149,9 @@ class RPCServer:
             return False
 
     # Handle the accept request. Return boolean
-    def accept(self, proposal_number, file_data):
+    def accept(self, proposal_number, file_data, node_id):
+        self.write_log(f"Received accept request {str(proposal_number)} from node {node_id}")
+        self.write_log(f"Check if can accept data: {base64.b64decode(file_data)}")
         if proposal_number >= self.promised_number:
             self.promised_number = proposal_number
             self.accepted_number = proposal_number
@@ -151,6 +162,7 @@ class RPCServer:
 
     # Commit changes and broadcast
     def commit(self, file_data):
+        self.write_log("Broadcasting accepted data.")
         self.write_file_data(file_data)
         for node_id, ip, port in self.cluster:
             url = f"http://{ip}:{port}"
@@ -161,14 +173,17 @@ class RPCServer:
                 self.write_log(f"Node{node_id} exception occurred: {repr(e)}")
             
     def update_value(self, val):
+        self.write_log("Received value: "+str(val)+", trying to propose...")
         encoded_val = base64.b64encode(val.encode("utf-8")).decode("utf-8")
         self.accepted_data = encoded_val
+        self.random_delay()
         if self.propose():
             # Adding max attempts to avoid infinite loop
             attempts = 0
             max_attempts = 5
             self.random_delay() # Call random delay to stimulate network lagging
             while attempts < max_attempts and not self.request_accept():
+                self.write_log('Accept failed, retrying to propose...')
                 self.propose()
                 attempts += 1
             if attempts < max_attempts:
