@@ -167,6 +167,7 @@ class RPCServer:
             # Adding max attempts to avoid infinite loop
             attempts = 0
             max_attempts = 5
+            self.random_delay() # Call random delay to stimulate network lagging
             while attempts < max_attempts and not self.request_accept():
                 self.propose()
                 attempts += 1

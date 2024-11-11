@@ -31,11 +31,11 @@ def run_servers():
         thread.daemon = True  # Allows threads to exit when main program exits
         thread.start()
         threads.append(thread)
-        try:
-            while True:
-                time.sleep(1)
-        except KeyboardInterrupt:
-            print("Shutting down servers...")
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("Shutting down servers...")
 
 if __name__ == "__main__":
     run_servers()
