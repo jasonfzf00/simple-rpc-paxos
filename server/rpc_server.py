@@ -129,7 +129,9 @@ class RPCServer:
 
     # Accept Phase
     # Send accept request to cluster.
-    def request_accept(self):
+    def request_accept(self,val):
+        if not self.accepted_data:
+            self.accepted_data = val
         self.write_log("Start requesting to accept.")
         vote = 1
         for node_id, ip, port in self.cluster:
@@ -175,14 +177,13 @@ class RPCServer:
     def update_value(self, val):
         self.write_log("Received value: "+str(val)+", trying to propose...")
         encoded_val = base64.b64encode(val.encode("utf-8")).decode("utf-8")
-        self.accepted_data = encoded_val
         self.random_delay()
         if self.propose():
             # Adding max attempts to avoid infinite loop
             attempts = 0
             max_attempts = 5
-            self.random_delay() # Call random delay to stimulate network lagging
-            while attempts < max_attempts and not self.request_accept():
+            self.random_delay() 
+            while attempts < max_attempts and not self.request_accept(encoded_val):
                 self.write_log('Accept failed, retrying to propose...')
                 self.propose()
                 attempts += 1
