@@ -1,6 +1,6 @@
 """
 Author: Jason (Zefeng) Fu
-Date: 
+Date: 11/10/2024
 
 The server class uses xmlrpc package and provides
 implmentation of basic paxos algorithm.
