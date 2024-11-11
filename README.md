@@ -5,8 +5,6 @@ This project implements a basic Paxos consensus algorithm using the `xmlrpc` pac
 ## Requirements
 
 - Python 3.8+
-- `xmlrpc.client` and `xmlrpc.server` (standard Python libraries)
-- `typing` module for type hints (standard in Python 3.5+)
 
 ## Usage
 
@@ -22,7 +20,7 @@ In server directory, the `main.py` file provides a simple cluster setup that run
    python main.py
    ``` 
 3. **Run Client**:
-In client directory, the `rpc_client.py` provides example of two clients calls propose value to two different server.
+In client directory, the `rpc_client.py` provides example of two clients calls `update_value()` to two different server.
    ```bash
    cd paxos-xmlrpc/client
    python rpc_client.py
